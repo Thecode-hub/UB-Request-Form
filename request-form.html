@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Request Form</title>
+  <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <header class="ori-header">
+    <div class="header-left">
+      <p>
+        <strong>Okavango Research Institute</strong><br>
+        Shorobe Road, Sexaxa, Maun<br>
+        Pvt Bag 285, Maun, Botswana<br>
+        Tel: (267) 681 7200 | Fax: (267) 680 1835<br>
+        Email: directorori@ori.ub.bw
+      </p>
+    </div>
+    <img src="assets/logo.png" class="logo-top-right" alt="ORI Logo" />
+  </header>
+
+  <main>
+    <img src="assets/logo.png" class="logo-center" alt="ORI Logo Center" />
+    <h2>Environmental Laboratory Analysis Request</h2>
+
+    <form id="requestForm" class="form-layout">
+      <label for="sampleId">Sample ID</label>
+      <input type="text" id="sampleId" name="sampleId" required />
+
+      <label for="customerName">Customer Name</label>
+      <input type="text" id="customerName" name="customerName" required />
+
+      <label for="company">Company</label>
+      <input type="text" id="company" name="company" />
+
+      <label for="address">Address</label>
+      <input type="text" id="address" name="address" />
+
+      <label for="phone">Phone</label>
+      <input type="tel" id="phone" name="phone" />
+
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" />
+
+      <label for="submittedDate">Date Submitted</label>
+      <input type="date" id="submittedDate" name="submittedDate" required />
+
+      <label for="desiredDate">Results Desired Date</label>
+      <input type="date" id="desiredDate" name="desiredDate" required />
+
+      <label for="projectName">Project Name</label>
+      <input type="text" id="projectName" name="projectName" />
+
+      <label for="billingAddress">Billing Address (if different)</label>
+      <input type="text" id="billingAddress" name="billingAddress" />
+
+      <label for="fax">Fax</label>
+      <input type="text" id="fax" name="fax" />
+
+      <div class="form-buttons">
+        <button type="button" id="backBtn">Back</button>
+        <button type="button" id="saveBtn">Save</button>
+        <button type="submit">Next</button>
+      </div>
+    </form>
+  </main>
+
+  <script type="module">
+    import { db, collection, addDoc } from './js/firebase.js';
+
+    const form = document.getElementById('requestForm');
+    const saveBtn = document.getElementById('saveBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    async function collectFormData() {
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData.entries());
+      data.timestamp = new Date().toISOString();
+      
+      const submittedDate = new Date(data.submittedDate);
+      const desiredDate = new Date(data.desiredDate);
+      
+      if (desiredDate < submittedDate) {
+        throw new Error("Desired date cannot be before submitted date");
+      }
+      
+      return data;
+    }
+
+    async function createNewRequest(data) {
+      try {
+        const docRef = await addDoc(collection(db, "labRequests"), data);
+        localStorage.setItem("currentRequestId", docRef.id);
+        return docRef.id;
+      } catch (error) {
+        console.error("Error creating new request:", error);
+        throw error;
+      }
+    }
+
+    saveBtn.addEventListener('click', async () => {
+      try {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving...";
+        const data = await collectFormData();
+        await createNewRequest(data);
+        alert("New request created successfully!");
+      } catch (error) {
+        alert(`Save failed: ${error.message}`);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save";
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Processing...";
+        const data = await collectFormData();
+        await createNewRequest(data);
+        window.location.href = "sample-details.html";
+      } catch (error) {
+        alert(`Submission failed: ${error.message}`);
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Next";
+      }
+    });
+
+    backBtn.addEventListener('click', () => {
+      window.location.href = "dashboard.html";
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('submittedDate').value = today;
+      
+      const nextWeek = new Date();
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      document.getElementById('desiredDate').value = nextWeek.toISOString().split('T')[0];
+    });
+  </script>
+</body>
+</html>

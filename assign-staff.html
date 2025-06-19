@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assign Staff</title>
+  <!-- Load Firebase SDKs first -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-storage-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+  <!-- PDF Generation Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <link rel="stylesheet" href="assets/styles.css">
+  <style>
+    /* Add styles for the new modal */
+    #invoiceDateModal .modal-content {
+      max-width: 400px;
+    }
+
+    #invoiceDateModal .form-group {
+      margin-bottom: 15px;
+    }
+
+    #invoiceDateModal label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    #invoiceDateModal input[type="date"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <header class="ori-header">
+    <div class="header-left">
+      <p>
+        Okavango Research Institute<br>
+        Shorobe Road, Sexaxa, Maun<br>
+        Pvt Bag 285, Maun, Botswana<br>
+        Tel: (267) 681 7200 | Fax: (267) 680 1835<br>
+        Email: directorori@ori.ub.bw
+      </p>
+    </div>
+    <img src="assets/logo.png" alt="ORI Logo" class="logo-top-right" />
+  </header>
+
+  <main>
+    <div class="user-controls">
+      <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Search by Sample ID...">
+        <button id="searchBtn">Search</button>
+      </div>
+      <div class="action-buttons">
+        <button id="changePasswordBtn" class="icon-btn" title="Change Password">
+          <i class="fas fa-key"></i>
+        </button>
+        <button id="logoutBtn" class="icon-btn" title="Logout">
+          <i class="fas fa-sign-out-alt"></i>
+        </button>
+      </div>
+    </div>
+
+    <img src="assets/logo.png" alt="ORI Logo Center" class="logo-center" />
+    <h2>Sample Assignment</h2>
+
+    <div class="table-container">
+      <table id="samplesTable" class="sample-table">
+        <thead>
+          <tr>
+            <th>Lab Code (Sample ID)</th>
+            <th>Customer Name</th>
+            <th>Location</th>
+            <th>Sample Description</th>
+            <th>Sample Type</th>
+            <th>Project</th>
+            <th>Researcher</th>
+            <th>Date Sampled</th>
+            <th>Date Received</th>
+            <th>Parameters</th>
+            <th>Analysts</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Will be populated by JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Password Change Modal -->
+    <div id="passwordModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Change Password</h3>
+        <form id="passwordForm">
+          <div class="form-group">
+            <label for="currentPassword">Current Password:</label>
+            <input type="password" id="currentPassword" required>
+          </div>
+
+          <div class="form-group">
+            <label for="newPassword">New Password:</label>
+            <input type="password" id="newPassword" required>
+          </div>
+
+          <div class="form-group">
+            <label for="confirmPassword">Confirm New Password:</label>
+            <input type="password" id="confirmPassword" required>
+          </div>
+
+          <div class="form-buttons">
+            <button type="button" class="cancel-btn">Cancel</button>
+            <button type="submit" class="submit-btn">Update</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Invoice Date Modal -->
+    <div id="invoiceDateModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Enter Invoice Details</h3>
+        <form id="invoiceDateForm">
+          <div class="form-group">
+            <label for="invoiceDate">Invoice Date:</label>
+            <input type="date" id="invoiceDate" required>
+          </div>
+          <div class="form-buttons">
+            <button type="button" class="cancel-btn">Cancel</button>
+            <button type="submit" class="submit-btn">Download PDF</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast"></div>
+  </main>
+
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCb0JvLK74KgaZidcDuXXN8VqLn2DmMdSo",
+      authDomain: "ori-lab.firebaseapp.com",
+      projectId: "ori-lab",
+      storageBucket: "ori-lab.appspot.com",
+      messagingSenderId: "824707349314",
+      appId: "1:824707349314:web:16d7f20d7cd7f65f4166db",
+      measurementId: "G-KBJF3H839B"
+    };
+    
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    
+    // Initialize Firebase services
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+    const storage = firebase.storage();
+
+    // DOM elements
+    const samplesTable = document.getElementById('samplesTable');
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const changePasswordBtn = document.getElementById('changePasswordBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const passwordModal = document.getElementById('passwordModal');
+    const passwordForm = document.getElementById('passwordForm');
+    const invoiceDateModal = document.getElementById('invoiceDateModal');
+    const invoiceDateForm = document.getElementById('invoiceDateForm');
+    const toast = document.getElementById('toast');
+
+    // Load and display samples
+    async function loadSamples(searchTerm = '') {
+      try {
+        let query;
+        if (searchTerm) {
+          query = db.collection("labRequests").where("sampleId", "==", searchTerm);
+        } else {
+          query = db.collection("labRequests");
+        }
+
+        const querySnapshot = await query.get();
+        const tbody = samplesTable.querySelector('tbody');
+        tbody.innerHTML = '';
+
+        if (querySnapshot.empty && searchTerm) {
+          tbody.innerHTML = `<tr><td colspan="13" class="no-results">No samples found with ID: ${searchTerm}</td></tr>`;
+          return;
+        }
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const row = document.createElement('tr');
+
+          // Date formatting
+          const formatDate = (dateString) => {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toISOString().split('T')[0];
+          };
+
+          // Get analyses from either analysisChecklist or analysis field
+          const analyses = data.analysisChecklist?.analyses ||
+            (data.analysis ? [data.analysis] : []);
+
+          // Get sample details
+          const sampleDetails = data.sampleDetails || {};
+          
+          // Create the table row with all fields from both forms
+          row.innerHTML = `
+            <td>${data.sampleId || doc.id.substring(0, 8)}</td>
+            <td>${data.customerName || ''}</td>
+            <td class="editable-cell" contenteditable="true">${data.location || ''}</td>
+            <td class="editable-cell" contenteditable="true">${sampleDetails.sampleDescription || data.sampleDescription || data.specialInstructions || ''}</td>
+            <td class="editable-cell" contenteditable="true">${sampleDetails.sampleType || data.sampleType || ''}</td>
+            <td class="editable-cell" contenteditable="true">${data.projectName || data.project || ''}</td>
+            <td class="editable-cell" contenteditable="true">${data.researcher || data.authorisation || ''}</td>
+            <td><input type="date" value="${formatDate(sampleDetails.dateSampled || data.dateSampled || data.timestamp)}"></td>
+            <td><input type="date" value="${formatDate(data.dateReceived || data.submittedDate || data.invoiceDate)}"></td>
+            <td>${analyses.slice(0, 3).join(', ')}${analyses.length > 3 ? '...' : ''}</td>
+            <td class="editable-cell" contenteditable="true">${data.analysts || ''}</td>
+            <td>
+              <select class="status-select" onchange="updateStatus(this, '${doc.id}')">
+                <option value="Pending" ${(!data.status || data.status === 'Pending') ? 'selected' : ''}>Pending</option>
+                <option value="In Progress" ${data.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                <option value="Completed" ${data.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                <option value="Cancelled" ${data.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+              </select>
+              <span class="status-badge ${data.status ? data.status.toLowerCase().replace(' ', '-') : 'pending'}">
+                ${data.status || 'Pending'}
+              </span>
+            </td>
+            <td class="actions">
+              <button class="download-btn" data-id="${doc.id}" title="Download PDF"><i class="fas fa-file-pdf"></i></button>
+              <button class="save-btn" data-id="${doc.id}" title="Save Changes"><i class="fas fa-save"></i></button>
+            </td>
+          `;
+
+          tbody.appendChild(row);
+        });
+
+        // Add event listeners to download buttons
+        document.querySelectorAll('.download-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const docId = e.currentTarget.getAttribute('data-id');
+            // Show invoice date modal instead of directly downloading
+            invoiceDateForm.setAttribute('data-doc-id', docId);
+            invoiceDateModal.style.display = 'block';
+            
+            // Set today's date as default
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('invoiceDate').value = today;
+          });
+        });
+
+        // Add event listeners to save buttons
+        document.querySelectorAll('.save-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const docId = e.currentTarget.getAttribute('data-id');
+            const row = e.target.closest('tr');
+
+            const updates = {
+              location: row.cells[2].textContent,
+              sampleDescription: row.cells[3].textContent,
+              sampleType: row.cells[4].textContent,
+              project: row.cells[5].textContent,
+              researcher: row.cells[6].textContent,
+              dateSampled: row.cells[7].querySelector('input').value,
+              dateReceived: row.cells[8].querySelector('input').value,
+              analysts: row.cells[10].textContent,
+              status: row.cells[11].querySelector('select').value,
+              lastUpdated: new Date().toISOString()
+            };
+
+            try {
+              await db.collection("labRequests").doc(docId).update(updates);
+              showToast('Sample updated successfully!');
+              loadSamples(); // Refresh the table
+            } catch (error) {
+              console.error("Error updating document: ", error);
+              showToast('Error updating sample: ' + error.message, 'error');
+            }
+          });
+        });
+      } catch (error) {
+        console.error("Error loading samples: ", error);
+        showToast('Error loading samples', 'error');
+      }
+    }
+
+    // Update status function
+    async function updateStatus(selectElement, docId) {
+      const newStatus = selectElement.value;
+      try {
+        await db.collection("labRequests").doc(docId).update({
+          status: newStatus,
+          lastUpdated: new Date().toISOString()
+        });
+        showToast('Status updated successfully!');
+        loadSamples(); // Refresh the table
+      } catch (error) {
+        console.error("Error updating status: ", error);
+        showToast('Error updating status', 'error');
+      }
+    }
+
+    // Download sample data as PDF
+    async function downloadSampleData(docId, invoiceDate) {
+      try {
+        const docRef = db.collection("labRequests").doc(docId);
+        const docSnap = await docRef.get();
+
+        if (docSnap.exists) {
+          const data = docSnap.data();
+          const sampleDetails = data.sampleDetails || {};
+          
+          // Update the document with invoice date if provided
+          if (invoiceDate) {
+            await docRef.update({
+              invoiceDate: invoiceDate,
+              lastUpdated: new Date().toISOString()
+            });
+          }
+
+          // Create a new PDF document
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+          
+          // Add title
+          doc.setFontSize(18);
+          doc.setTextColor(0, 51, 102); // Dark blue color
+          doc.text('OKAVANGO RESEARCH INSTITUTE', 105, 15, { align: 'center' });
+          doc.setFontSize(14);
+          doc.text('LABORATORY SAMPLE REPORT', 105, 22, { align: 'center' });
+          
+          // Add sample information
+          doc.setFontSize(10);
+          let yPos = 40;
+          
+          const sampleInfo = [
+            { label: 'Sample ID', value: data.sampleId || docId.substring(0, 8) },
+            { label: 'Customer Name', value: data.customerName || '' },
+            { label: 'Project', value: data.projectName || data.project || '' },
+            { label: 'Researcher', value: data.researcher || data.authorisation || '' },
+            { label: 'Location', value: data.location || '' },
+            { label: 'Sample Type', value: sampleDetails.sampleType || data.sampleType || '' },
+            { label: 'Description', value: sampleDetails.sampleDescription || data.sampleDescription || '' },
+            { label: 'Date Sampled', value: formatPDFDate(sampleDetails.dateSampled || data.dateSampled || '') },
+            { label: 'Date Received', value: formatPDFDate(data.dateReceived || data.submittedDate || '') },
+            { label: 'Invoice Date', value: formatPDFDate(invoiceDate || data.invoiceDate || '') },
+            { label: 'Status', value: data.status || 'Pending' },
+            { label: 'Analysts', value: data.analysts || '' }
+          ];
+          
+          // Create a table for sample information
+          doc.autoTable({
+            startY: yPos,
+            head: [['Field', 'Value']],
+            body: sampleInfo.map(item => [item.label, item.value]),
+            theme: 'grid',
+            headStyles: { 
+              fillColor: [0, 51, 102],
+              textColor: 255,
+              fontStyle: 'bold'
+            },
+            alternateRowStyles: { fillColor: [240, 240, 240] }
+          });
+          
+          yPos = doc.lastAutoTable.finalY + 10;
+          
+          // Add analyses section
+          const analyses = data.analysisChecklist?.analyses || (data.analysis ? [data.analysis] : []);
+          if (analyses.length > 0) {
+            doc.setFontSize(12);
+            doc.setTextColor(0, 51, 102);
+            doc.text('REQUESTED ANALYSES', 14, yPos);
+            yPos += 10;
+            
+            doc.autoTable({
+              startY: yPos,
+              head: [['Analysis']],
+              body: analyses.map(analysis => [analysis]),
+              theme: 'grid',
+              headStyles: { 
+                fillColor: [0, 51, 102],
+                textColor: 255,
+                fontStyle: 'bold'
+              },
+              alternateRowStyles: { fillColor: [240, 240, 240] }
+            });
+          }
+          
+          // Add footer with logo
+          try {
+            const logoUrl = await getLogoUrl();
+            if (logoUrl) {
+              doc.addImage(logoUrl, 'PNG', 160, 280, 40, 20);
+            }
+          } catch (error) {
+            console.error("Could not load logo:", error);
+          }
+          
+          doc.setFontSize(8);
+          doc.setTextColor(100);
+          doc.text('Okavango Research Institute - Shorobe Road, Sexaxa, Maun, Botswana', 105, 290, { align: 'center' });
+          
+          // Save the PDF
+          const fileName = `${data.sampleId || docId.substring(0, 8)}_report.pdf`;
+          doc.save(fileName);
+          
+          showToast('PDF download started!');
+        } else {
+          showToast('Document not found', 'error');
+        }
+      } catch (error) {
+        console.error("Error generating PDF:", error);
+        showToast("Error generating PDF: " + error.message, "error");
+      }
+    }
+
+    // Format date for PDF
+    function formatPDFDate(dateString) {
+      if (!dateString) return '';
+      try {
+        const date = new Date(dateString);
+        return isNaN(date.getTime()) ? dateString : date.toLocaleDateString('en-GB');
+      } catch (e) {
+        return dateString;
+      }
+    }
+
+    // Get logo URL from Firebase Storage
+    async function getLogoUrl() {
+      try {
+        const storageRef = storage.ref();
+        const logoRef = storageRef.child('logo.png');
+        return await logoRef.getDownloadURL();
+      } catch (error) {
+        console.error("Error getting logo URL:", error);
+        return null;
+      }
+    }
+
+    // Change password
+    async function changePassword(currentPassword, newPassword) {
+      const user = auth.currentUser;
+      const credential = firebase.auth.EmailAuthProvider.credential(
+        user.email,
+        currentPassword
+      );
+
+      try {
+        await user.reauthenticateWithCredential(credential);
+        await user.updatePassword(newPassword);
+        return true;
+      } catch (error) {
+        throw error;
+      }
+    }
+
+    // Logout
+    function logout() {
+      auth.signOut().then(() => {
+        window.location.href = 'index.html';
+      }).catch((error) => {
+        showToast('Error logging out: ' + error.message, 'error');
+      });
+    }
+
+    // Show toast notification
+    function showToast(message, type = 'success') {
+      toast.textContent = message;
+      toast.className = type;
+      toast.style.display = 'block';
+
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3000);
+    }
+
+    // Event listeners
+    searchBtn.addEventListener('click', () => {
+      const searchTerm = searchInput.value.trim();
+      if (searchTerm) {
+        loadSamples(searchTerm);
+      } else {
+        loadSamples();
+      }
+    });
+
+    searchInput.addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') {
+        searchBtn.click();
+      }
+    });
+
+    changePasswordBtn.addEventListener('click', () => {
+      passwordModal.style.display = 'block';
+    });
+
+    logoutBtn.addEventListener('click', logout);
+
+    // Close modals when clicking X or cancel buttons
+    document.querySelectorAll('.close').forEach(btn => {
+      btn.addEventListener('click', () => {
+        passwordModal.style.display = 'none';
+        invoiceDateModal.style.display = 'none';
+      });
+    });
+
+    document.querySelectorAll('.cancel-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        passwordModal.style.display = 'none';
+        invoiceDateModal.style.display = 'none';
+      });
+    });
+
+    // Close modals when clicking outside
+    window.addEventListener('click', (e) => {
+      if (e.target === passwordModal || e.target === invoiceDateModal) {
+        e.target.style.display = 'none';
+      }
+    });
+
+    // Password form submission
+    passwordForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+
+      if (newPassword !== confirmPassword) {
+        showToast('New passwords do not match!', 'error');
+        return;
+      }
+
+      try {
+        await changePassword(currentPassword, newPassword);
+        showToast('Password changed successfully!');
+        passwordModal.style.display = 'none';
+        passwordForm.reset();
+      } catch (error) {
+        showToast('Error changing password: ' + error.message, 'error');
+      }
+    });
+
+    // Invoice date form submission
+    invoiceDateForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const docId = invoiceDateForm.getAttribute('data-doc-id');
+      const invoiceDate = document.getElementById('invoiceDate').value;
+      
+      if (!invoiceDate) {
+        showToast('Please enter a valid invoice date', 'error');
+        return;
+      }
+
+      try {
+        await downloadSampleData(docId, invoiceDate);
+        invoiceDateModal.style.display = 'none';
+        invoiceDateForm.reset();
+      } catch (error) {
+        showToast('Error generating PDF: ' + error.message, 'error');
+      }
+    });
+
+    // Initialize the app
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        loadSamples();
+      } else {
+        window.location.href = 'index.html';
+      }
+    });
+
+    // Make updateStatus function available globally
+    window.updateStatus = updateStatus;
+  </script>
+</body>
+</html>

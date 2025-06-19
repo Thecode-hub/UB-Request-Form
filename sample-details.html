@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sample Details</title>
+  <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <header class="ori-header">
+    <div class="header-left">
+      <p>
+        <strong>Okavango Research Institute</strong><br>
+        Shorobe Road, Sexaxa, Maun<br>
+        Pvt Bag 285, Maun, Botswana<br>
+        Tel: (267) 681 7200 | Fax: (267) 680 1835<br>
+        Email: directorori@ori.ub.bw
+      </p>
+      <img src="assets/logo.png" alt="ORI Logo" class="logo-top-right" />
+    </div>
+  </header>
+
+  <main>
+    <img src="assets/logo.png" class="logo-center" alt="ORI Logo Center" />
+    <h2>Sample Details</h2>
+    <form id="sampleForm">
+      <fieldset>
+        <legend>Select Sample Type:</legend>
+        <label><input type="radio" name="sampleType" value="Water" required /> Water</label>
+        <label><input type="radio" name="sampleType" value="Plant material" /> Plant Material</label>
+        <label><input type="radio" name="sampleType" value="Soil" /> Soil</label>
+        <label><input type="radio" name="sampleType" value="Other" /> Other</label>
+      </fieldset>
+
+      <label for="numberOfSamples">Number of Samples:</label>
+      <input type="number" id="numberOfSamples" name="numberOfSamples" min="1" required />
+
+      <label for="customerCondition">Customer Sample Condition:</label>
+      <textarea id="customerCondition" name="customerCondition" placeholder="Describe the sample condition as received from customer"></textarea>
+
+      <label for="labCondition">Lab Sample Condition:</label>
+      <textarea id="labCondition" name="labCondition" placeholder="Describe the sample condition as received in lab"></textarea>
+
+      <fieldset>
+        <legend>Sample Status:</legend>
+        <label><input type="radio" name="sampleStatus" value="Discard" required /> Discard after analysis</label>
+        <label><input type="radio" name="sampleStatus" value="Collect" /> Collect after analysis</label>
+      </fieldset>
+
+      <div class="form-buttons">
+        <button type="button" id="backBtn">Back</button>
+        <button type="submit" id="submitBtn">Next</button>
+      </div>
+    </form>
+  </main>
+
+  <script type="module">
+    import { db, doc, updateDoc, getDoc } from './js/firebase.js';
+
+    const form = document.getElementById('sampleForm');
+    const backBtn = document.getElementById('backBtn');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Saving...";
+        
+        const formData = new FormData(form);
+        const sampleDetails = Object.fromEntries(formData.entries());
+        
+        const requestId = localStorage.getItem("currentRequestId");
+        if (!requestId) {
+          throw new Error("No request found. Please start from the beginning.");
+        }
+        
+        const docRef = doc(db, "labRequests", requestId);
+        const docSnap = await getDoc(docRef);
+        
+        if (!docSnap.exists()) {
+          throw new Error("Request document not found in database. Please create a new request first.");
+        }
+        
+        await updateDoc(docRef, {
+          sampleDetails: {
+            ...sampleDetails,
+            timestamp: new Date().toISOString()
+          },
+          status: "Sample Details Added"
+        });
+        
+        window.location.href = "analysis-checklist.html";
+        
+      } catch (error) {
+        console.error("Error saving sample details:", error);
+        alert(`Error: ${error.message}\n\nPlease ensure you've created a request first.`);
+        window.location.href = "request-form.html";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Next";
+      }
+    });
+
+    backBtn.addEventListener('click', () => {
+      window.location.href = "request-form.html";
+    });
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const requestId = localStorage.getItem("currentRequestId");
+      if (requestId) {
+        try {
+          const docRef = doc(db, "labRequests", requestId);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists() && docSnap.data().sampleDetails) {
+            const sampleDetails = docSnap.data().sampleDetails;
+            
+            if (sampleDetails.sampleType) {
+              document.querySelector(`input[name="sampleType"][value="${sampleDetails.sampleType}"]`).checked = true;
+            }
+            if (sampleDetails.numberOfSamples) {
+              document.getElementById('numberOfSamples').value = sampleDetails.numberOfSamples;
+            }
+            if (sampleDetails.customerCondition) {
+              document.getElementById('customerCondition').value = sampleDetails.customerCondition;
+            }
+            if (sampleDetails.labCondition) {
+              document.getElementById('labCondition').value = sampleDetails.labCondition;
+            }
+            if (sampleDetails.sampleStatus) {
+              document.querySelector(`input[name="sampleStatus"][value="${sampleDetails.sampleStatus}"]`).checked = true;
+            }
+          }
+        } catch (error) {
+          console.error("Error loading existing sample details:", error);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
