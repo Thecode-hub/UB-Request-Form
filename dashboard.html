@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta charset="UTF-8">
   <title>ORI Dashboard</title>
-  <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+   <link rel="icon" type="assets/x-icon" href="/assets/favicon.ico">
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
   <header class="ori-header">
+    
     <div class="header-left">
       <p>
         Okavango Research Institute<br>
@@ -28,5 +30,30 @@
       <button onclick="window.location.href='assign-staff.html'">ORI Staff</button>
     </div>
   </main>
+
+  <!-- Add the authentication script -->
+  <script type="module">
+    import { auth } from './js/firebase.js';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      auth.onAuthStateChanged((user) => {
+        if (user && user.email === 'admin@ori.com') {
+          const adminLink = document.createElement('a');
+          adminLink.href = 'admin.html';
+          adminLink.textContent = 'Admin Panel';
+          adminLink.style.margin = '0 10px';
+          adminLink.style.padding = '8px 16px';
+          adminLink.style.backgroundColor = '#4CAF50';
+          adminLink.style.color = 'white';
+          adminLink.style.border = 'none';
+          adminLink.style.borderRadius = '4px';
+          adminLink.style.cursor = 'pointer';
+          adminLink.style.textDecoration = 'none';
+          adminLink.style.display = 'inline-block';
+          document.querySelector('div[style="text-align: center;"]').appendChild(adminLink);
+        }
+      });
+    });
+  </script>
 </body>
 </html>

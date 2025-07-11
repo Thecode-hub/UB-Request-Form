@@ -5,40 +5,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Assign Staff</title>
-  <!-- Load Firebase SDKs first -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-storage-compat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+  <link rel="icon" type="assets/x-icon" href="/assets/favicon.ico">
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <!-- PDF Generation Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-  <link rel="stylesheet" href="assets/styles.css">
-  <style>
-    /* Add styles for the new modal */
-    #invoiceDateModal .modal-content {
-      max-width: 400px;
-    }
-
-    #invoiceDateModal .form-group {
-      margin-bottom: 15px;
-    }
-
-    #invoiceDateModal label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: bold;
-    }
-
-    #invoiceDateModal input[type="date"] {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 16px;
-    }
-  </style>
 </head>
 
 <body>
@@ -59,7 +31,7 @@
     <div class="user-controls">
       <div class="search-container">
         <input type="text" id="searchInput" placeholder="Search by Sample ID...">
-        <button id="searchBtn">Search</button>
+        <button id="searchBtn" class="search-btn"><i class="fas fa-search"></i></button>
       </div>
       <div class="action-buttons">
         <button id="changePasswordBtn" class="icon-btn" title="Change Password">
@@ -84,11 +56,11 @@
             <th>Sample Description</th>
             <th>Sample Type</th>
             <th>Project</th>
-            <th>Researcher</th>
+            <th>Researcher/Analysts</th>
             <th>Date Sampled</th>
             <th>Date Received</th>
             <th>Parameters</th>
-            <th>Analysts</th>
+            <th>Sampler</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
@@ -109,22 +81,34 @@
             <label for="currentPassword">Current Password:</label>
             <input type="password" id="currentPassword" required>
           </div>
-
           <div class="form-group">
             <label for="newPassword">New Password:</label>
             <input type="password" id="newPassword" required>
           </div>
-
           <div class="form-group">
             <label for="confirmPassword">Confirm New Password:</label>
             <input type="password" id="confirmPassword" required>
           </div>
-
           <div class="form-buttons">
             <button type="button" class="cancel-btn">Cancel</button>
             <button type="submit" class="submit-btn">Update</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Download Option Modal -->
+    <div id="downloadOptionModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Select Download Option</h3>
+        <div class="form-group">
+          <button class="download-option-btn" id="downloadReportBtn">Download Report</button>
+          <button class="download-option-btn" id="downloadInvoiceBtn">Download Invoice</button>
+        </div>
+        <div class="form-buttons">
+          <button type="button" class="cancel-btn">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -138,9 +122,39 @@
             <label for="invoiceDate">Invoice Date:</label>
             <input type="date" id="invoiceDate" required>
           </div>
+          <div class="form-group">
+            <label for="invoiceAmount">Amount (Pula):</label>
+            <input type="number" id="invoiceAmount" step="0.01" min="0" required>
+          </div>
+          <div class="form-group">
+            <label for="invoiceTechnician">Technician Name:</label>
+            <input type="text" id="invoiceTechnician" required>
+          </div>
           <div class="form-buttons">
             <button type="button" class="cancel-btn">Cancel</button>
-            <button type="submit" class="submit-btn">Download PDF</button>
+            <button type="submit" class="submit-btn">Generate Invoice</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Technician Details Modal -->
+    <div id="technicianModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Enter Technician Details</h3>
+        <form id="technicianForm">
+          <div class="form-group">
+            <label for="technicianName">Technician Name:</label>
+            <input type="text" id="technicianName" required>
+          </div>
+          <div class="form-group">
+            <label for="technicianTitle">Technician Title:</label>
+            <input type="text" id="technicianTitle" required>
+          </div>
+          <div class="form-buttons">
+            <button type="button" class="cancel-btn">Cancel</button>
+            <button type="submit" class="submit-btn">Generate Report</button>
           </div>
         </form>
       </div>
@@ -150,25 +164,26 @@
     <div id="toast"></div>
   </main>
 
-  <script>
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyCb0JvLK74KgaZidcDuXXN8VqLn2DmMdSo",
-      authDomain: "ori-lab.firebaseapp.com",
-      projectId: "ori-lab",
-      storageBucket: "ori-lab.appspot.com",
-      messagingSenderId: "824707349314",
-      appId: "1:824707349314:web:16d7f20d7cd7f65f4166db",
-      measurementId: "G-KBJF3H839B"
-    };
-    
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    
-    // Initialize Firebase services
-    const db = firebase.firestore();
-    const auth = firebase.auth();
-    const storage = firebase.storage();
+  <script type="module">
+    import {
+      auth,
+      db,
+      collection,
+      doc,
+      getDocs,
+      updateDoc,
+      deleteDoc,
+      logout,
+      changePassword,
+      onAuthStateChanged,
+      query,
+      where,
+      runTransaction,
+      getDoc
+    } from './js/firebase.js';
+
+    // Initialize jsPDF
+    const { jsPDF } = window.jspdf;
 
     // DOM elements
     const samplesTable = document.getElementById('samplesTable');
@@ -178,26 +193,34 @@
     const logoutBtn = document.getElementById('logoutBtn');
     const passwordModal = document.getElementById('passwordModal');
     const passwordForm = document.getElementById('passwordForm');
+    const downloadOptionModal = document.getElementById('downloadOptionModal');
+    const downloadReportBtn = document.getElementById('downloadReportBtn');
+    const downloadInvoiceBtn = document.getElementById('downloadInvoiceBtn');
     const invoiceDateModal = document.getElementById('invoiceDateModal');
     const invoiceDateForm = document.getElementById('invoiceDateForm');
+    const technicianModal = document.getElementById('technicianModal');
+    const technicianForm = document.getElementById('technicianForm');
     const toast = document.getElementById('toast');
+
+    let currentDocId = null;
 
     // Load and display samples
     async function loadSamples(searchTerm = '') {
       try {
-        let query;
+        let q;
         if (searchTerm) {
-          query = db.collection("labRequests").where("sampleId", "==", searchTerm);
+          q = query(collection(db, "labRequests"), where("sampleId", "==", searchTerm));
         } else {
-          query = db.collection("labRequests");
+          q = collection(db, "labRequests");
         }
 
-        const querySnapshot = await query.get();
+        const querySnapshot = await getDocs(q);
         const tbody = samplesTable.querySelector('tbody');
         tbody.innerHTML = '';
 
-        if (querySnapshot.empty && searchTerm) {
-          tbody.innerHTML = `<tr><td colspan="13" class="no-results">No samples found with ID: ${searchTerm}</td></tr>`;
+        if (querySnapshot.empty) {
+          tbody.innerHTML = `<tr><td colspan="13" class="no-results">${searchTerm ? `No samples found with ID: ${searchTerm}` : 'No samples found'
+            }</td></tr>`;
           return;
         }
 
@@ -218,7 +241,7 @@
 
           // Get sample details
           const sampleDetails = data.sampleDetails || {};
-          
+
           // Create the table row with all fields from both forms
           row.innerHTML = `
             <td>${data.sampleId || doc.id.substring(0, 8)}</td>
@@ -231,9 +254,9 @@
             <td><input type="date" value="${formatDate(sampleDetails.dateSampled || data.dateSampled || data.timestamp)}"></td>
             <td><input type="date" value="${formatDate(data.dateReceived || data.submittedDate || data.invoiceDate)}"></td>
             <td>${analyses.slice(0, 3).join(', ')}${analyses.length > 3 ? '...' : ''}</td>
-            <td class="editable-cell" contenteditable="true">${data.analysts || ''}</td>
+            <td class="editable-cell" contenteditable="true">${data.sampler || ''}</td>
             <td>
-              <select class="status-select" onchange="updateStatus(this, '${doc.id}')">
+              <select class="status-select">
                 <option value="Pending" ${(!data.status || data.status === 'Pending') ? 'selected' : ''}>Pending</option>
                 <option value="In Progress" ${data.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
                 <option value="Completed" ${data.status === 'Completed' ? 'selected' : ''}>Completed</option>
@@ -246,7 +269,9 @@
             <td class="actions">
               <button class="download-btn" data-id="${doc.id}" title="Download PDF"><i class="fas fa-file-pdf"></i></button>
               <button class="save-btn" data-id="${doc.id}" title="Save Changes"><i class="fas fa-save"></i></button>
-            </td>
+              <button class="delete-btn" data-id="${doc.id}" data-email="${data.customerEmail || ''}" title="Delete Sample">
+                <i class="fas fa-trash-alt"></i>
+              </td>
           `;
 
           tbody.appendChild(row);
@@ -255,14 +280,8 @@
         // Add event listeners to download buttons
         document.querySelectorAll('.download-btn').forEach(btn => {
           btn.addEventListener('click', async (e) => {
-            const docId = e.currentTarget.getAttribute('data-id');
-            // Show invoice date modal instead of directly downloading
-            invoiceDateForm.setAttribute('data-doc-id', docId);
-            invoiceDateModal.style.display = 'block';
-            
-            // Set today's date as default
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('invoiceDate').value = today;
+            currentDocId = e.currentTarget.getAttribute('data-id');
+            downloadOptionModal.style.display = 'block';
           });
         });
 
@@ -280,13 +299,13 @@
               researcher: row.cells[6].textContent,
               dateSampled: row.cells[7].querySelector('input').value,
               dateReceived: row.cells[8].querySelector('input').value,
-              analysts: row.cells[10].textContent,
+              sampler: row.cells[10].textContent,
               status: row.cells[11].querySelector('select').value,
               lastUpdated: new Date().toISOString()
             };
 
             try {
-              await db.collection("labRequests").doc(docId).update(updates);
+              await updateDoc(doc(db, "labRequests", docId), updates);
               showToast('Sample updated successfully!');
               loadSamples(); // Refresh the table
             } catch (error) {
@@ -295,139 +314,361 @@
             }
           });
         });
+        // Add event listeners to delete buttons
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const docId = e.currentTarget.getAttribute('data-id');
+            const row = e.target.closest('tr');
+            const sampleId = row.cells[0].textContent;
+
+            // Confirm before deleting
+            if (confirm(`Are you sure you want to delete sample ${sampleId}? This action cannot be undone.`)) {
+              try {
+                await deleteDoc(doc(db, "labRequests", docId));
+                showToast('Sample deleted successfully!');
+                loadSamples(); // Refresh the table
+              } catch (error) {
+                console.error("Error deleting document: ", error);
+                showToast('Error deleting sample: ' + error.message, 'error');
+              }
+            }
+          });
+        });
+
+        // Add event listeners to status selects
+        document.querySelectorAll('.status-select').forEach(select => {
+          select.addEventListener('change', async function () {
+            const docId = this.closest('tr').querySelector('.save-btn').getAttribute('data-id');
+            const newStatus = this.value;
+
+            try {
+              await updateDoc(doc(db, "labRequests", docId), {
+                status: newStatus,
+                lastUpdated: new Date().toISOString()
+              });
+              showToast('Status updated successfully!');
+              loadSamples(); // Refresh the table
+            } catch (error) {
+              console.error("Error updating status: ", error);
+              showToast('Error updating status', 'error');
+            }
+          });
+        });
       } catch (error) {
         console.error("Error loading samples: ", error);
-        showToast('Error loading samples', 'error');
+        const tbody = samplesTable.querySelector('tbody');
+        tbody.innerHTML = `<tr><td colspan="13" class="error">Error loading samples: ${error.message}</td></tr>`;
       }
     }
 
-    // Update status function
-    async function updateStatus(selectElement, docId) {
-      const newStatus = selectElement.value;
+    // Function to get the next invoice number
+    async function getNextInvoiceNumber() {
       try {
-        await db.collection("labRequests").doc(docId).update({
-          status: newStatus,
-          lastUpdated: new Date().toISOString()
-        });
-        showToast('Status updated successfully!');
-        loadSamples(); // Refresh the table
-      } catch (error) {
-        console.error("Error updating status: ", error);
-        showToast('Error updating status', 'error');
-      }
-    }
+        // Get the counter document
+        const counterRef = doc(db, "counters", "invoiceCounter");
 
-    // Download sample data as PDF
-    async function downloadSampleData(docId, invoiceDate) {
-      try {
-        const docRef = db.collection("labRequests").doc(docId);
-        const docSnap = await docRef.get();
+        // Atomically increment the counter and get the new value
+        const counterDoc = await runTransaction(db, async (transaction) => {
+          const doc = await transaction.get(counterRef);
 
-        if (docSnap.exists) {
-          const data = docSnap.data();
-          const sampleDetails = data.sampleDetails || {};
-          
-          // Update the document with invoice date if provided
-          if (invoiceDate) {
-            await docRef.update({
-              invoiceDate: invoiceDate,
-              lastUpdated: new Date().toISOString()
-            });
+          if (!doc.exists()) {
+            // If counter doesn't exist, create it with initial value 1
+            transaction.set(counterRef, { value: 1 });
+            return { value: 1 };
           }
 
-          // Create a new PDF document
-          const { jsPDF } = window.jspdf;
-          const doc = new jsPDF();
-          
-          // Add title
-          doc.setFontSize(18);
-          doc.setTextColor(0, 51, 102); // Dark blue color
-          doc.text('OKAVANGO RESEARCH INSTITUTE', 105, 15, { align: 'center' });
-          doc.setFontSize(14);
-          doc.text('LABORATORY SAMPLE REPORT', 105, 22, { align: 'center' });
-          
-          // Add sample information
-          doc.setFontSize(10);
-          let yPos = 40;
-          
-          const sampleInfo = [
-            { label: 'Sample ID', value: data.sampleId || docId.substring(0, 8) },
-            { label: 'Customer Name', value: data.customerName || '' },
-            { label: 'Project', value: data.projectName || data.project || '' },
-            { label: 'Researcher', value: data.researcher || data.authorisation || '' },
-            { label: 'Location', value: data.location || '' },
-            { label: 'Sample Type', value: sampleDetails.sampleType || data.sampleType || '' },
-            { label: 'Description', value: sampleDetails.sampleDescription || data.sampleDescription || '' },
-            { label: 'Date Sampled', value: formatPDFDate(sampleDetails.dateSampled || data.dateSampled || '') },
-            { label: 'Date Received', value: formatPDFDate(data.dateReceived || data.submittedDate || '') },
-            { label: 'Invoice Date', value: formatPDFDate(invoiceDate || data.invoiceDate || '') },
-            { label: 'Status', value: data.status || 'Pending' },
-            { label: 'Analysts', value: data.analysts || '' }
-          ];
-          
-          // Create a table for sample information
-          doc.autoTable({
-            startY: yPos,
-            head: [['Field', 'Value']],
-            body: sampleInfo.map(item => [item.label, item.value]),
+          // Increment the counter
+          const newValue = (doc.data().value || 0) + 1;
+          transaction.update(counterRef, { value: newValue });
+          return { value: newValue };
+        });
+
+        return counterDoc.value;
+      } catch (error) {
+        console.error("Error getting next invoice number:", error);
+        return 1; // Fallback to 1 if there's an error
+      }
+    }
+
+    // Format invoice number with leading zeros
+    function formatInvoiceNumber(number) {
+      return number.toString().padStart(5, '0');
+    }
+
+    // Download Sample Data as PDF Report
+    async function downloadSampleReport(docId, technicianName, technicianTitle) {
+      try {
+        const docRef = doc(db, "labRequests", docId);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+          showToast('Document not found', 'error');
+          return;
+        }
+
+        const data = docSnap.data();
+        const sampleDetails = data.sampleDetails || {};
+
+        // Create PDF
+        const pdfDoc = new jsPDF();
+
+        // Add title
+        pdfDoc.setFontSize(18);
+        pdfDoc.setTextColor(0, 51, 102);
+        pdfDoc.text('OKAVANGO RESEARCH INSTITUTE', 105, 15, { align: 'center' });
+        pdfDoc.setFontSize(14);
+        pdfDoc.text('LABORATORY SAMPLE REPORT', 105, 22, { align: 'center' });
+
+        // Prepare sample info
+        const sampleInfo = [
+          { label: 'Sample ID', value: data.sampleId || docId.substring(0, 8) },
+          { label: 'Customer Name', value: data.customerName || '' },
+          { label: 'Customer Phone', value: data.customerPhone || '' },
+          { label: 'Customer Address', value: data.customerAddress || '' },
+          { label: 'Project', value: data.projectName || data.project || '' },
+          { label: 'Researcher/Analysts', value: data.researcher || data.authorisation || '' },
+          { label: 'Location', value: data.location || '' },
+          { label: 'Sample Type', value: sampleDetails.sampleType || data.sampleType || '' },
+          { label: 'Description', value: sampleDetails.sampleDescription || data.sampleDescription || '' },
+          { label: 'Date Sampled', value: formatPDFDate(sampleDetails.dateSampled || data.dateSampled || '') },
+          { label: 'Date Received', value: formatPDFDate(data.dateReceived || data.submittedDate || '') },
+          { label: 'Status', value: data.status || 'Pending' },
+          { label: 'Sampler', value: data.sampler || '' }
+        ].filter(item => item.value); // Only include fields with values
+
+        // Add sample info table
+        pdfDoc.autoTable({
+          startY: 40,
+          head: [['Field', 'Value']],
+          body: sampleInfo.map(item => [item.label, item.value]),
+          theme: 'grid',
+          headStyles: {
+            fillColor: [0, 51, 102],
+            textColor: 255,
+            fontStyle: 'bold'
+          },
+          alternateRowStyles: { fillColor: [240, 240, 240] },
+          styles: { fontSize: 9 }
+        });
+
+        // Add analyses if available
+        const analyses = data.analysisChecklist?.analyses || (data.analysis ? [data.analysis] : []);
+        if (analyses.length > 0) {
+          const yPos = pdfDoc.lastAutoTable.finalY + 10;
+          pdfDoc.setFontSize(12);
+          pdfDoc.setTextColor(0, 51, 102);
+          pdfDoc.text('REQUESTED ANALYSES', 14, yPos);
+
+          pdfDoc.autoTable({
+            startY: yPos + 10,
+            head: [['Analysis']],
+            body: analyses.map(analysis => [analysis]),
             theme: 'grid',
-            headStyles: { 
+            headStyles: {
               fillColor: [0, 51, 102],
               textColor: 255,
               fontStyle: 'bold'
             },
             alternateRowStyles: { fillColor: [240, 240, 240] }
           });
-          
-          yPos = doc.lastAutoTable.finalY + 10;
-          
-          // Add analyses section
-          const analyses = data.analysisChecklist?.analyses || (data.analysis ? [data.analysis] : []);
-          if (analyses.length > 0) {
-            doc.setFontSize(12);
-            doc.setTextColor(0, 51, 102);
-            doc.text('REQUESTED ANALYSES', 14, yPos);
-            yPos += 10;
-            
-            doc.autoTable({
-              startY: yPos,
-              head: [['Analysis']],
-              body: analyses.map(analysis => [analysis]),
-              theme: 'grid',
-              headStyles: { 
-                fillColor: [0, 51, 102],
-                textColor: 255,
-                fontStyle: 'bold'
-              },
-              alternateRowStyles: { fillColor: [240, 240, 240] }
-            });
-          }
-          
-          // Add footer with logo
-          try {
-            const logoUrl = await getLogoUrl();
-            if (logoUrl) {
-              doc.addImage(logoUrl, 'PNG', 160, 280, 40, 20);
-            }
-          } catch (error) {
-            console.error("Could not load logo:", error);
-          }
-          
-          doc.setFontSize(8);
-          doc.setTextColor(100);
-          doc.text('Okavango Research Institute - Shorobe Road, Sexaxa, Maun, Botswana', 105, 290, { align: 'center' });
-          
-          // Save the PDF
-          const fileName = `${data.sampleId || docId.substring(0, 8)}_report.pdf`;
-          doc.save(fileName);
-          
-          showToast('PDF download started!');
-        } else {
-          showToast('Document not found', 'error');
         }
+
+        // Add signature section
+        const finalY = pdfDoc.lastAutoTable.finalY + 30;
+        pdfDoc.setFontSize(12);
+        pdfDoc.text('Prepared by:', 20, finalY);
+
+        // Add technician name and title
+        pdfDoc.setFont(undefined, 'bold');
+        pdfDoc.text(technicianName || 'Technician Name', 20, finalY + 10);
+        pdfDoc.setFont(undefined, 'normal');
+        pdfDoc.text(technicianTitle || 'ORI Technician', 20, finalY + 15);
+
+        // Add signature line
+        pdfDoc.line(20, finalY + 25, 60, finalY + 25);
+        pdfDoc.text('Signature', 20, finalY + 30);
+
+        // Add date
+        pdfDoc.text(`Date: ${formatPDFDate(new Date())}`, 120, finalY + 30);
+
+        // Add footer
+        pdfDoc.setFontSize(8);
+        pdfDoc.setTextColor(100);
+        pdfDoc.text('Okavango Research Institute - Shorobe Road, Sexaxa, Maun, Botswana', 105, 290, { align: 'center' });
+
+        // Save PDF
+        const fileName = `${data.sampleId || docId.substring(0, 8)}_report.pdf`;
+        pdfDoc.save(fileName);
+
+        showToast('Report download started!');
       } catch (error) {
-        console.error("Error generating PDF:", error);
-        showToast("Error generating PDF: " + error.message, "error");
+        console.error("Error generating report PDF:", error);
+        showToast("Error generating report: " + error.message, "error");
+      }
+    }
+
+    // Download Sample Data as PDF Invoice
+    async function downloadSampleInvoice(docId, invoiceDate, invoiceAmount, technicianName) {
+      try {
+        const docRef = doc(db, "labRequests", docId);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+          showToast('Document not found', 'error');
+          return;
+        }
+
+        const data = docSnap.data();
+        const invoiceYear = new Date(invoiceDate).getFullYear();
+        const invoiceNumber = await getNextInvoiceNumber();
+        const formattedInvoiceNumber = formatInvoiceNumber(invoiceNumber);
+        const fullInvoiceNumber = `ORI/ENVIRONMENTAL LABORATORY/${formattedInvoiceNumber}/${invoiceYear}`;
+
+        // Get the sample name from the data
+        const sampleName = data.sampleType || data.sampleDetails?.sampleType || 'Sample';
+
+        // Update document with invoice details (async, don't wait)
+        updateDoc(docRef, {
+          invoiceDate: invoiceDate,
+          invoiceAmount: invoiceAmount,
+          invoiceNumber: fullInvoiceNumber,
+          lastUpdated: new Date().toISOString()
+        }).catch(e => console.error("Error updating invoice details:", e));
+
+        // Create PDF
+        const pdfDoc = new jsPDF();
+
+        // Address
+        pdfDoc.setFontSize(10);
+        pdfDoc.setFont(undefined, 'normal');
+        pdfDoc.text('Shorobe Road, Sexaxa', 20, 30);
+        pdfDoc.text('Maun, Botswana', 20, 35);
+        pdfDoc.text('Private Bag 285', 20, 45);
+        pdfDoc.text('Maun, Botswana', 20, 50);
+
+        // Contact info
+        pdfDoc.text('Tel: (267) 681 7222/4', 20, 60);
+        pdfDoc.text('Fax: (267) 686 1835', 20, 65);
+        pdfDoc.text('Email: dtrori@ub.ac.bw', 20, 70);
+
+        // Invoice title with separation
+        // Set styles for the header
+        pdfDoc.setFontSize(18);
+        pdfDoc.setFont(undefined, 'bold');
+        pdfDoc.setTextColor(0, 51, 102);
+
+        // Add "Okavango Research Institute" at the top center
+        pdfDoc.text('OKAVANGO RESEARCH INSTITUTE', 105, 15, { align: 'center' });
+
+        // Add "Environmental Laboratory Invoice" underneath
+        pdfDoc.setFontSize(14);
+        pdfDoc.text('ENVIRONMENTAL LABORATORY INVOICE', 105, 25, { align: 'center' });
+
+        // Add the decorative line
+        pdfDoc.setDrawColor(0, 51, 102);
+        pdfDoc.setLineWidth(0.5);
+         // Adjusted line position to be wider and below both texts
+
+        // VAT number
+        pdfDoc.setFontSize(10);
+        pdfDoc.text('V.A.T REG. NUMBER', 160, 25);
+        pdfDoc.text('C03889401113', 160, 30);
+
+        // Invoice details
+        pdfDoc.setFontSize(10);
+        pdfDoc.setFont(undefined, 'normal');
+        pdfDoc.setTextColor(0, 0, 0);
+        pdfDoc.text(`DATE: ${formatInvoiceDate(invoiceDate)}`, 20, 85);
+        pdfDoc.text(`TO: ${data.customerName || ''}`, 20, 90);
+
+        // Add customer phone if available
+        if (data.customerPhone) {
+          pdfDoc.text(`Phone: ${data.customerPhone}`, 20, 95);
+        }
+
+        // Add customer address if available
+        if (data.customerAddress) {
+          const addressLines = pdfDoc.splitTextToSize(data.customerAddress, 150);
+          pdfDoc.text(addressLines, 20, data.customerPhone ? 100 : 95);
+        }
+
+        // Invoice number position based on content
+        const invoiceNumberY = data.customerAddress ? 120 : (data.customerPhone ? 110 : 105);
+        pdfDoc.text(`Invoice NO: ${fullInvoiceNumber}`, 20, invoiceNumberY);
+
+        // Invoice table
+        const analyses = data.analysisChecklist?.analyses || (data.analysis ? [data.analysis] : []);
+        const analysisDescription = analyses.join(', ');
+
+        pdfDoc.autoTable({
+          startY: invoiceNumberY + 10,
+          head: [['Matrix', 'Analyses', 'Cost Total (P)']],
+          body: [
+            [
+              sampleName,
+              `Chemical analysis; ${analysisDescription} @ P${invoiceAmount.toFixed(2)}/sample`,
+              invoiceAmount.toFixed(2)
+            ],
+            ['TOTAL', '', invoiceAmount.toFixed(2)]
+          ],
+          theme: 'grid',
+          headStyles: {
+            fillColor: [0, 51, 102],
+            textColor: 255,
+            fontStyle: 'bold'
+          },
+          columnStyles: {
+            0: { cellWidth: 30 },
+            1: { cellWidth: 120 },
+            2: { cellWidth: 30 }
+          }
+        });
+
+        // VAT note
+        pdfDoc.text('VAT inclusive', 20, pdfDoc.lastAutoTable.finalY + 10);
+
+        // Payment details
+        const paymentDetails = [
+          'ACCOUNT NAME: UNIVERSITY OF BOTSWANA',
+          'BANK NAME: STANDARD CHARTERED BANK',
+          'BANK POSTAL ADDRESS: P O BOX 1529, GABORONE',
+          'ACCOUNT NUMBER: 0100110109600',
+          'BRANCH NAME: MALL BRANCH',
+          'BRANCH CODE: 662167',
+          'SWIFT CODE: SCHIBWGX',
+          'CONTACT PERSON (UB): JOSEPHINE MAKOBA',
+          'TEL: 002676817207',
+          'FAX: 002676861835',
+          'EMAIL ADDRESS: imakoba@ub.ac.bw/ kkaisara@ub.ac.bw',
+          'REF: P0642'
+        ];
+
+        let currentY = pdfDoc.lastAutoTable.finalY + 25;
+        pdfDoc.setFont(undefined, 'bold');
+        pdfDoc.text(paymentDetails[0], 20, currentY);
+        pdfDoc.setFont(undefined, 'normal');
+
+        paymentDetails.slice(1).forEach((line, index) => {
+          currentY += 5;
+          pdfDoc.text(line, 20, currentY);
+        });
+
+        // Signature
+        pdfDoc.text(technicianName || '', 140, currentY + 25);
+        pdfDoc.text('ORI Technician', 140, currentY + 30);
+
+        // Footer
+        pdfDoc.setFont(undefined, 'bold');
+        pdfDoc.text('OKAVANGO RESEARCH INSTITUTE', 140, currentY + 40);
+
+        // Save PDF
+        const fileName = `${data.sampleId || docId.substring(0, 8)}_invoice.pdf`;
+        pdfDoc.save(fileName);
+
+        showToast('Invoice download started!');
+      } catch (error) {
+        console.error("Error generating invoice PDF:", error);
+        showToast("Error generating invoice: " + error.message, "error");
       }
     }
 
@@ -442,42 +683,18 @@
       }
     }
 
-    // Get logo URL from Firebase Storage
-    async function getLogoUrl() {
+    // Format date for invoice (Month Day, Year)
+    function formatInvoiceDate(dateString) {
+      if (!dateString) return '';
       try {
-        const storageRef = storage.ref();
-        const logoRef = storageRef.child('logo.png');
-        return await logoRef.getDownloadURL();
-      } catch (error) {
-        console.error("Error getting logo URL:", error);
-        return null;
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString;
+
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        return date.toLocaleDateString('en-US', options);
+      } catch (e) {
+        return dateString;
       }
-    }
-
-    // Change password
-    async function changePassword(currentPassword, newPassword) {
-      const user = auth.currentUser;
-      const credential = firebase.auth.EmailAuthProvider.credential(
-        user.email,
-        currentPassword
-      );
-
-      try {
-        await user.reauthenticateWithCredential(credential);
-        await user.updatePassword(newPassword);
-        return true;
-      } catch (error) {
-        throw error;
-      }
-    }
-
-    // Logout
-    function logout() {
-      auth.signOut().then(() => {
-        window.location.href = 'index.html';
-      }).catch((error) => {
-        showToast('Error logging out: ' + error.message, 'error');
-      });
     }
 
     // Show toast notification
@@ -494,11 +711,7 @@
     // Event listeners
     searchBtn.addEventListener('click', () => {
       const searchTerm = searchInput.value.trim();
-      if (searchTerm) {
-        loadSamples(searchTerm);
-      } else {
-        loadSamples();
-      }
+      loadSamples(searchTerm);
     });
 
     searchInput.addEventListener('keyup', (e) => {
@@ -511,26 +724,37 @@
       passwordModal.style.display = 'block';
     });
 
-    logoutBtn.addEventListener('click', logout);
+    logoutBtn.addEventListener('click', () => {
+      logout().then(() => {
+        window.location.href = 'index.html';
+      }).catch(error => {
+        showToast('Error logging out: ' + error.message, 'error');
+      });
+    });
 
     // Close modals when clicking X or cancel buttons
     document.querySelectorAll('.close').forEach(btn => {
       btn.addEventListener('click', () => {
         passwordModal.style.display = 'none';
+        downloadOptionModal.style.display = 'none';
         invoiceDateModal.style.display = 'none';
+        technicianModal.style.display = 'none';
       });
     });
 
     document.querySelectorAll('.cancel-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         passwordModal.style.display = 'none';
+        downloadOptionModal.style.display = 'none';
         invoiceDateModal.style.display = 'none';
+        technicianModal.style.display = 'none';
       });
     });
 
     // Close modals when clicking outside
     window.addEventListener('click', (e) => {
-      if (e.target === passwordModal || e.target === invoiceDateModal) {
+      if (e.target === passwordModal || e.target === downloadOptionModal ||
+        e.target === invoiceDateModal || e.target === technicianModal) {
         e.target.style.display = 'none';
       }
     });
@@ -557,37 +781,93 @@
       }
     });
 
+    // Download option buttons
+    downloadReportBtn.addEventListener('click', async () => {
+      downloadOptionModal.style.display = 'none';
+      technicianForm.setAttribute('data-doc-id', currentDocId);
+      technicianModal.style.display = 'block';
+    });
+
+    downloadInvoiceBtn.addEventListener('click', () => {
+      downloadOptionModal.style.display = 'none';
+      // Show invoice date modal
+      invoiceDateForm.setAttribute('data-doc-id', currentDocId);
+      invoiceDateModal.style.display = 'block';
+
+      // Set today's date as default
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('invoiceDate').value = today;
+      document.getElementById('invoiceAmount').value = '0.00';
+      document.getElementById('invoiceTechnician').value = '';
+    });
+
+    // Technician form submission
+    technicianForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const docId = technicianForm.getAttribute('data-doc-id');
+      const technicianName = document.getElementById('technicianName').value;
+      const technicianTitle = document.getElementById('technicianTitle').value;
+
+      if (!technicianName) {
+        showToast('Please enter technician name', 'error');
+        return;
+      }
+
+      if (!technicianTitle) {
+        showToast('Please enter technician title', 'error');
+        return;
+      }
+
+      try {
+        await downloadSampleReport(docId, technicianName, technicianTitle);
+        technicianModal.style.display = 'none';
+        technicianForm.reset();
+      } catch (error) {
+        showToast('Error generating report: ' + error.message, 'error');
+      }
+    });
+
     // Invoice date form submission
     invoiceDateForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const docId = invoiceDateForm.getAttribute('data-doc-id');
       const invoiceDate = document.getElementById('invoiceDate').value;
-      
+      const invoiceAmount = parseFloat(document.getElementById('invoiceAmount').value);
+      const technicianName = document.getElementById('invoiceTechnician').value;
+
       if (!invoiceDate) {
         showToast('Please enter a valid invoice date', 'error');
         return;
       }
 
+      if (isNaN(invoiceAmount) || invoiceAmount <= 0) {
+        showToast('Please enter a valid amount', 'error');
+        return;
+      }
+
+      if (!technicianName) {
+        showToast('Please enter technician name', 'error');
+        return;
+      }
+
       try {
-        await downloadSampleData(docId, invoiceDate);
+        await downloadSampleInvoice(docId, invoiceDate, invoiceAmount, technicianName);
         invoiceDateModal.style.display = 'none';
         invoiceDateForm.reset();
       } catch (error) {
-        showToast('Error generating PDF: ' + error.message, 'error');
+        showToast('Error generating invoice: ' + error.message, 'error');
       }
     });
 
     // Initialize the app
-    auth.onAuthStateChanged((user) => {
+    onAuthStateChanged(auth, (user) => {
       if (user) {
         loadSamples();
       } else {
         window.location.href = 'index.html';
       }
     });
-
-    // Make updateStatus function available globally
-    window.updateStatus = updateStatus;
   </script>
 </body>
+
 </html>

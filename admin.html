@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <link rel="icon" type="assets/x-icon" href="/assets/favicon.ico">
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+  <header class="ori-header">
+    <div class="header-left">
+      <p>
+        <strong>Okavango Research Institute</strong><br>
+        Shorobe Road, Sexaxa, Maun<br>
+        Pvt Bag 285, Maun, Botswana<br>
+        Tel: (267) 681 7200 | Fax: (267) 680 1835<br>
+        Email: directorori@ori.ub.bw
+      </p>
+    </div>
+    <img src="assets/logo.png" class="logo-top-right" alt="ORI Logo" />
+  </header>
+
+  <main>
+    <img src="assets/logo.png" class="logo-center" alt="ORI Logo Center" />
+    <h2>Admin Dashboard</h2>
+
+    <div class="admin-controls">
+      <button id="assignBtn" class="primary-btn">
+        <i class="fas fa-user-plus"></i> Assign Staff
+      </button>
+      <button id="logoutBtn" class="danger-btn">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </button>
+    </div>
+
+    <div class="admin-container">
+      <div class="admin-section">
+        <h3>Create New User</h3>
+        <form id="userForm">
+          <div class="user-form">
+            <div class="form-group">
+              <label for="email">Email:</label>
+              <input type="email" id="email" required>
+            </div>
+            <div class="form-group">
+              <label for="password">Password:</label>
+              <input type="password" id="password" required minlength="6">
+            </div>
+            <div class="form-group">
+              <label for="confirmPassword">Confirm Password:</label>
+              <input type="password" id="confirmPassword" required minlength="6">
+            </div>
+            <div class="form-group">
+              <label for="role">Role:</label>
+              <select id="role" required>
+                <option value="technician">Technician</option>
+                <option value="admin">Admin</option>
+                <option value="researcher">Researcher</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="name">Full Name:</label>
+              <input type="text" id="name" required>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="secondary-btn" id="clearBtn">Clear</button>
+              <button type="submit" class="primary-btn">Create User</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="admin-section">
+        <h3>User Management</h3>
+        <div class="table-container">
+          <table id="usersTable" class="user-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Will be populated by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { 
+      auth, 
+      db, 
+      collection, 
+      doc, 
+      getDoc,  // Added this missing import
+      getDocs, 
+      deleteDoc, 
+      setDoc, 
+      logout, 
+      createUserWithEmailAndPassword,
+      setupAuthListener
+    } from './js/firebase.js';
+
+    const userForm = document.getElementById('userForm');
+    const clearBtn = document.getElementById('clearBtn');
+    const usersTable = document.getElementById('usersTable').querySelector('tbody');
+    const assignBtn = document.getElementById('assignBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    // Create user in both Auth and Firestore
+    async function createUser(email, password, name, role) {
+      try {
+        // Create auth user
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const uid = userCredential.user.uid;
+        
+        // Create user document in Firestore
+        await setDoc(doc(db, "users", uid), {
+          uid,
+          email,
+          name,
+          role,
+          createdAt: new Date().toISOString()
+        });
+        
+        return true;
+      } catch (error) {
+        console.error("Error creating user:", error);
+        throw error;
+      }
+    }
+
+    // Load all users from Firestore
+    async function loadUsers() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "users"));
+        const users = [];
+        querySnapshot.forEach(doc => {
+          users.push({ id: doc.id, ...doc.data() });
+        });
+        displayUsers(users);
+      } catch (error) {
+        console.error("Error loading users:", error);
+        showToast('Error loading users', 'error');
+      }
+    }
+
+    // Display users in table
+    function displayUsers(users) {
+      usersTable.innerHTML = '';
+      
+      if (users.length === 0) {
+        usersTable.innerHTML = '<tr><td colspan="5" class="no-results">No users found</td></tr>';
+        return;
+      }
+
+      users.forEach(user => {
+        const row = document.createElement('tr');
+        
+        // Format date
+        const createdAt = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A';
+        
+        row.innerHTML = `
+          <td>${user.email}</td>
+          <td>${user.name || '-'}</td>
+          <td>${user.role || '-'}</td>
+          <td>${createdAt}</td>
+          <td class="actions">
+            <button class="danger-btn delete-btn" data-id="${user.id}" data-email="${user.email}">
+              <i class="fas fa-trash-alt"></i> Delete
+            </button>
+          </td>
+        `;
+        usersTable.appendChild(row);
+      });
+
+      // Add event listeners to delete buttons
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const userId = e.currentTarget.getAttribute('data-id');
+          const userEmail = e.currentTarget.getAttribute('data-email');
+          
+          if (confirm(`Are you sure you want to delete ${userEmail}? This action cannot be undone.`)) {
+            try {
+              await deleteDoc(doc(db, "users", userId));
+              showToast('User deleted successfully');
+              loadUsers();
+            } catch (error) {
+              console.error("Error deleting user:", error);
+              showToast('Error deleting user', 'error');
+            }
+          }
+        });
+      });
+    }
+
+    // Show toast notification
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.remove();
+      }, 3000);
+    }
+
+    // Form submission
+    userForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const role = document.getElementById('role').value;
+      const name = document.getElementById('name').value.trim();
+
+      // Validate passwords match
+      if (password !== confirmPassword) {
+        showToast('Passwords do not match', 'error');
+        return;
+      }
+
+      try {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="button-spinner"></span> Creating...';
+        
+        await createUser(email, password, name, role);
+        showToast('User created successfully');
+        userForm.reset();
+        loadUsers();
+      } catch (error) {
+        console.error("Error creating user:", error);
+        showToast(`Error: ${error.message}`, 'error');
+      } finally {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Create User';
+      }
+    });
+
+    // Clear form
+    clearBtn.addEventListener('click', () => {
+      userForm.reset();
+    });
+
+    // Navigation
+    assignBtn.addEventListener('click', () => {
+      window.location.href = 'assign-staff.html';
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await logout();
+      } catch (error) {
+        console.error('Logout error:', error);
+        showToast('Error logging out', 'error');
+      }
+    });
+
+    // Initialize with setupAuthListener instead of onAuthStateChanged
+    setupAuthListener((user) => {
+      if (user) {
+        // Check if user is admin
+        getDoc(doc(db, "users", user.uid)).then((docSnap) => {
+          if (docSnap.exists() && docSnap.data().role === 'admin') {
+            loadUsers();
+          } else {
+            window.location.href = 'dashboard.html';
+          }
+        });
+      } else {
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+</body>
+</html>
